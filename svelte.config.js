@@ -18,7 +18,7 @@ const config = {
 		paths: {
 			base: dev ? '': '/polkukartta/build'
 		},
-		appDir: 'internal',
+		//appDir: 'internal',
 	}
 };
 
