@@ -16,7 +16,7 @@ const config = {
 		},
 		trailingSlash: 'always',
 		paths: {
-			base: dev ? '': '/polkukartta'
+			base: dev ? '': '/polkukartta/build'
 		},
 		//appDir: 'internal',
 	}
