@@ -89,7 +89,19 @@ const loadRoutes = async () => {
     console.log(routes)
 }
 
+	function asize(bytes) {
+		if (bytes > 1024*1024) return (bytes/1024/104).toFixed(0)+' MB'
+		if (bytes > 1024) return (bytes/1024).toFixed(0)+' kB'
+		return (bytes)+' B'
+	}
+
+	function perf(time) {
+		if (time > 1000) return (bytes/1000).toFixed(0)+' s'
+		return (time)+' ms'
+	}
+
 onMount(async () => {
+
 
 	map = L.map('mapid').setView([65.330, 26.818], 176);
 /*	
@@ -133,6 +145,79 @@ onMount(async () => {
 		console.log(map.layerPointToLatLng(map.getPixelOrigin()))
 	})
 */
+    const tmp = 'api-key=468d361d-0f46-4cde-b8af-9c125302d6d4'
+
+	const MmlCanvas = L.GridLayer.extend({
+		id2way: {},
+		createTile: function(coords, done) {
+			const tile = L.DomUtil.create('canvas', 'leaflet-tile');
+			const size = this.getTileSize();
+			tile.width = size.x;
+			tile.height = size.y;
+
+			const latLng = map.unproject(coords.scaleBy(size), coords.z) //map.layerPointToLatLng(relC)
+			const latLng2 = map.unproject(coords.clone().add([1,1]).scaleBy(size), coords.z)
+			const bounds = L.latLngBounds(latLng, latLng2)
+			const dx = (bounds.getEast() - bounds.getWest())
+			const dy = (bounds.getNorth() - bounds.getSouth())
+
+			const endpoint = 'https://avoin-paikkatieto.maanmittauslaitos.fi/maastotiedot/features/v1/collections/'
+
+			//https://avoin-paikkatieto.maanmittauslaitos.fi/maastotiedot/features/v1/collections/korkeuskayra/items?api-key=468d361d-0f46-4cde-b8af-9c125302d6d4&f=json
+			const ctx = tile.getContext('2d');
+			ctx.clearRect(0, 0, tile.width, tile.height);
+
+			const collections = 'korkeuskayra,jarvi,rakennus'.split(',')
+			for (const coll of collections) {
+				fetch(`${endpoint}${coll}/items?${tmp}&bbox=${latLng.lng},${latLng2.lat},${latLng2.lng},${latLng.lat}&&bbox-crs=http://www.opengis.net/def/crs/EPSG/0/4326&crs=http://www.opengis.net/def/crs/EPSG/0/4326&f=json`)
+					.then(data => {
+						const t0 = Date.now()
+						data.json().then(d => {
+
+							for (const f of d.features) {
+								if (coll == 'jarvi') {
+									//console.log('järvi')
+									ctx.beginPath()
+									for (let i=0; i<f.geometry.coordinates[0].length; i++) {
+										const pt = f.geometry.coordinates[0][i]
+										const x = (pt[0]-bounds.getWest())/dx * size.x
+										const y = size.y - (pt[1]-bounds.getSouth())/dy * size.y
+										i==0 ? ctx.moveTo(x,y): ctx.lineTo(x,y)
+									}
+									ctx.closePath()
+									ctx.fillStyle = 'blue'
+									ctx.fill()
+								}
+								if (coll == 'korkeuskayra') {
+									//ctx.beginPath()
+									for (let i=0; i<f.geometry.coordinates.length; i++) {
+										const pt = f.geometry.coordinates[i]
+										const x = (pt[0]-bounds.getWest())/dx * size.x
+										const y = size.y - (pt[1]-bounds.getSouth())/dy * size.y
+										i==0 ? ctx.moveTo(x,y): ctx.lineTo(x,y)
+										//console.log(pt, x,y)
+									}
+									//ctx.closePath()
+									ctx.lineWidth = 0.4
+									ctx.strokeStyle = 'white'
+									ctx.stroke()
+
+								}
+							}
+
+							const t1 = Date.now()
+							console.log('rt', coll, asize(JSON.stringify(d).length), perf(t1-t0))
+							done(undefined, tile)
+						})
+					})
+			}
+			//console.log('osm', latLng, latLng2)
+
+			return tile
+		}
+	})
+
+
 
 //		const scaleX = 0.016, scaleY = 0.016
 	const TreeCanvas = L.GridLayer.extend({
@@ -159,11 +244,20 @@ onMount(async () => {
 			case 8: ctx.fillStyle = 'blue'; break; // Vesistö
 			}
 			if (act) ctx.fillStyle = 'yellow'
+
+			switch (sub) {
+			case 1: ctx.fillStyle = 'LimeGreen'; break;  // Kangas
+			case 2: ctx.fillStyle = '#9ABD53'; break;  // Korpi
+			case 3: ctx.fillStyle = 'YellowGreen'; break;  // Räme
+			case 4: ctx.fillStyle = 'Gold'; break;  // Neva
+			case 5: ctx.fillStyle = 'Aquamarine'; break;  // Letto				
+			}
+
 			ctx.fill()
 		},
 
 		renderTrees: function(ctx, bounds, size, trees) {
-			console.log('render trees', trees.length)
+			//console.log('render trees', trees.length)
 			const b = bounds
 			const dx = (b.getEast() - b.getWest())
 			const dy = (b.getNorth() - b.getSouth())
@@ -258,7 +352,7 @@ onMount(async () => {
 				case 29: //Lehtipuu
 				case 30: //Havupuu
 				default:
-					console.log('missing render tree render for ', tree.specie)
+					;//console.log('missing render tree render for ', tree.specie)
 				}
 			}
 
@@ -309,6 +403,7 @@ onMount(async () => {
 			fetch(`${endpoint}&BBOX=${bounds.getSouth()},${bounds.getWest()},${bounds.getNorth()},${bounds.getEast()},urn:ogc:def:crs:EPSG::4326&outputFormat=json`)
 				.then(data => {
 					data.json().then(d => {
+						const t0 = Date.now()
 						const ctx = tile.getContext('2d');
 						ctx.clearRect(0, 0, tile.width, tile.height);
 
@@ -335,7 +430,7 @@ onMount(async () => {
 						}
 						this.renderTrees(ctx, bounds, size, trees)
 						//this.drawOnCanvas(ctx, )
-
+						console.log('mk', asize(JSON.stringify(d).length), perf(Date.now()-t0))
 						done(undefined, tile)
 					})
 				})
@@ -346,6 +441,9 @@ onMount(async () => {
 	})
 	const treeCanvas = new TreeCanvas()
 	treeCanvas.addTo(map)
+
+	const mml = new MmlCanvas()
+	mml.addTo(map)
 
 
 	const OsmCanvas = L.GridLayer.extend({
@@ -366,12 +464,14 @@ onMount(async () => {
 			fetch(`${endpoint}?data=[out:json][bbox:${latLng2.lat},${latLng.lng},${latLng.lat},${latLng2.lng}];way[highway];out geom;`)
 				.then(data => {
 					data.json().then(d => {
+						
 						for (const elm of d.elements) {
 							const id = elm.id
 							if (this.id2way[id] === undefined) {
 								this.id2way[id] = elm
 							}
 						}
+						
 						const ctx = tile.getContext('2d');
 						ctx.clearRect(0, 0, tile.width, tile.height);
 
@@ -382,17 +482,39 @@ onMount(async () => {
 								L.latLng(e.bounds.maxlat, e.bounds.maxlon))
 
 							if (bounds.overlaps(b)) {
+								ctx.beginPath()
 								for (let i=0; i<e.geometry.length; i++) {
 									const pt = e.geometry[i]
 									const x = (pt.lon-bounds.getWest())/dx * size.x
 									const y = size.y - (pt.lat-bounds.getSouth())/dy * size.y
-				
 									i==0 ? ctx.moveTo(x, y): ctx.lineTo(x, y)
 								}
-								ctx.lineWidth = 5;
-								//ctx.closePath()
-								ctx.strokeStyle = 'red';
-								ctx.stroke()
+								if (e.tags.highway == 'path') {
+									if (e.tags['mtb:scale']) {
+										let color = null
+										switch(parseInt(e.tags['mtb:scale'])) {
+										case 1: color = 'lime'; break;
+										case 2: color = 'yellow'; break;
+										case 3: color = 'orange'; break;
+										case 4: color = 'red'; break;
+										case 5: color = 'purple'; break;
+										case 6: color = 'purple'; break;
+										}
+										ctx.setLineDash([])
+										ctx.lineWidth = 6;
+										ctx.strokeStyle = color
+										ctx.stroke()
+									}
+									ctx.setLineDash([15, 5])
+									ctx.lineWidth = 2;
+									ctx.strokeStyle = 'black'
+									ctx.stroke()
+								} else {
+									ctx.setLineDash([])
+									ctx.lineWidth = 3;
+									ctx.strokeStyle = 'black';
+									ctx.stroke()
+								}
 							}
 						}
 
