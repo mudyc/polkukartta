@@ -549,7 +549,7 @@ class MmlCanvas extends BaseCanvas {
                 i==0 ? ctx.moveTo(x,y): ctx.lineTo(x,y)
             }
             ctx.closePath()
-            ctx.fillStyle = 'blue'
+            ctx.fillStyle = '#1e90ff' //'blue'
             ctx.fill()
         }
         if (feature == 'korkeuskayra') {
@@ -564,7 +564,7 @@ class MmlCanvas extends BaseCanvas {
                 }
                 //ctx.closePath()
                 ctx.lineWidth = 0.4
-                ctx.strokeStyle = 'white'
+                ctx.strokeStyle = '#87a96b' //'#ecebbd' //'white'
                 ctx.stroke()
             }
         }
@@ -578,7 +578,6 @@ class MmlCanvas extends BaseCanvas {
             ctx.fillText(f.properties.teksti, x, y)
         }
         if (feature == 'jyrkanne') {
-            console.log(f)
             for (let i=0; i<f.geometry.coordinates.length; i++) {
                 const pt = f.geometry.coordinates[i]
                 const x = (pt[0]-bbox[1])/dx * wh[0]
@@ -590,6 +589,33 @@ class MmlCanvas extends BaseCanvas {
             ctx.lineWidth = 5.5
             ctx.strokeStyle = 'black'
             ctx.stroke()
+        }
+        if (feature == 'virtavesikapea') {
+            //console.log(f.properties)            
+            for (let i=0; i<f.geometry.coordinates.length; i++) {
+                const pt = f.geometry.coordinates[i]
+                const x = (pt[0]-bbox[1])/dx * wh[0]
+                const y = wh[1] - (pt[1]-bbox[0])/dy * wh[1]
+                i==0 ? ctx.moveTo(x,y): ctx.lineTo(x,y)
+                //console.log(pt, x,y)
+            }
+            //ctx.closePath()
+            ctx.lineWidth = 1.0
+            ctx.strokeStyle = 'blue'
+            ctx.stroke()
+        }
+        if (feature == 'suo') {
+            //console.log(f.properties.kulkukelpoisuus, f.properties.metsaisyys)
+            ctx.beginPath()
+            for (let i=0; i<f.geometry.coordinates[0].length; i++) {
+                const pt = f.geometry.coordinates[0][i]
+                const x = (pt[0]-bbox[1])/dx * wh[0]
+                const y = wh[1] - (pt[1]-bbox[0])/dy * wh[1]
+                i==0 ? ctx.moveTo(x,y): ctx.lineTo(x,y)
+            }
+            ctx.closePath()
+            ctx.fillStyle = 'rgb(0,0,255, 0.10)' //'blue'
+            ctx.fill()
         }
     }
 }
@@ -636,7 +662,7 @@ class SmkCanvas extends BaseCanvas {
         map.registerCanvas(this)
     }
 
-    load(hashes) {
+    load(hashes, feature) {
         const that = this
         for (const hash of hashes) {
             //if (hash != "ue43bt") continue
@@ -655,7 +681,9 @@ class SmkCanvas extends BaseCanvas {
                             //if (that.hash2idarr[hash] === undefined) that.hash2idarr[hash] = []
                             that.hash2idarr[hash].push(id)
                             that.id2obj[id] = elm
-                            this.addTrees(elm)
+                            this.map.addTask( ()=>{
+                                this.addTrees(elm)
+                            })
                         }
                         this.map.rerender()
                     })
@@ -665,7 +693,7 @@ class SmkCanvas extends BaseCanvas {
 
     * render(ctx, bbox, wh, feature, hashlen, extra) {
         const hashes = bboxes(bbox[0], bbox[1], bbox[2], bbox[3], hashlen)
-        this.load(hashes)
+        this.load(hashes, feature)
 
         const dx = bbox[3] - bbox[1]
         const dy = bbox[2] - bbox[0]
@@ -702,7 +730,7 @@ class SmkCanvas extends BaseCanvas {
 
             this.renderSoil(ctx, p.MAINGROUP, p.SUBGROUP, p.SOILTYPE, false)
         }
-        if (feature == 'trees')
+        if (feature == 'trees' && f.trees)
             this.renderTrees(ctx, bbox, wh, f.trees)
     }
     renderSoil(ctx, main, sub, soil, act) {
@@ -711,7 +739,7 @@ class SmkCanvas extends BaseCanvas {
         switch (main) {
         case 1: ctx.fillStyle = 'LimeGreen'; // Metsämaa
             switch (sub) {
-            case 1: ctx.fillStyle = 'LimeGreen'; break;  // Kangas
+            case 1: ctx.fillStyle = '#77dd77'; break; //'LimeGreen'; break;  // Kangas
             case 2: ctx.fillStyle = 'MediumSeaGreen'; break;  // Korpi
             case 3: ctx.fillStyle = 'DarkSeaGreen'; break;  // Räme
             case 4: ctx.fillStyle = 'YellowGreen'; break;  // Neva
@@ -729,7 +757,7 @@ class SmkCanvas extends BaseCanvas {
         if (act) ctx.fillStyle = 'yellow'
 
         switch (sub) {
-        case 1: ctx.fillStyle = 'LimeGreen'; break;  // Kangas
+        case 1: ctx.fillStyle = '#5BCE5B'; break;//'LimeGreen'; break;  // Kangas
         case 2: ctx.fillStyle = '#9ABD53'; break;  // Korpi
         case 3: ctx.fillStyle = 'YellowGreen'; break;  // Räme
         case 4: ctx.fillStyle = 'Gold'; break;  // Neva
@@ -737,7 +765,7 @@ class SmkCanvas extends BaseCanvas {
         }
 
         ctx.fill()
-        ctx.strokeStyle = 'grey'
+        ctx.strokeStyle = '#76ff7a'//'grey'
         ctx.lineWidth = 0.3
         ctx.stroke()
     }
@@ -752,8 +780,8 @@ class SmkCanvas extends BaseCanvas {
         //renderForest(ctx, geom, p.AREA, p.STEMCOUNT, p.MAINTREESPECIES, p.MEANAGE, p.MEANDIAMETER, p.MEANHEIGHT)
     
         let freq = p.STEMCOUNT > 0 ? Math.sqrt(p.AREA / p.STEMCOUNT): 10000
-        if (p.STEMCOUNT)
-            freq *= (area(bboxPolygon(bb)) / 10000.)  / p.AREA
+        //if (p.STEMCOUNT)
+        //    freq *= (area(bboxPolygon(bb)) / 10000.)  / p.AREA
         f.freq = freq
         let pt = { x: bb[1], y: bb[2]} // west, north
         while (pt.y > bb[0]) {
@@ -877,6 +905,7 @@ class OsmCanvas extends BaseCanvas {
         super('osm')
         this.hash2idarr = {} // hash
         this.id2obj = {}
+        this.id2mark = {}
         this.map = map
         map.registerCanvas(this)
     }
@@ -884,15 +913,20 @@ class OsmCanvas extends BaseCanvas {
     load(hashes, feature) {
         const endpoint = 'https://overpass.kumi.systems/api/interpreter'
         const that = this
-        for (const hash of hashes) {
+        for (const hash_ of hashes) {
+            const hash = hash_ + feature
+
             //if (hash != "ue43bt") continue
             if (this.hash2idarr[hash] !== undefined) continue
             if (this.hash2idarr[hash] === undefined) this.hash2idarr[hash] = []
 
-            const bb = decode_bbox(hash)
-            const detail = feature == 'motorway' ? '[highway="motorway"]' : 
-                '[highway][highway!="motorway"]'
-            fetch(`${endpoint}?data=[out:json][bbox:${bb.join(',')}];way${detail};out geom;`)
+            const bb = decode_bbox(hash_)
+            const detail = 
+                feature == 'motorway' ? 'way[highway="motorway"];out geom;' :
+                (feature == 'reitti' ? 'rel[route="hiking"];out;' :
+                //'way[highway];out geom;')
+                'way[highway][highway!="motorway"];out geom;')
+            fetch(`${endpoint}?data=[out:json][bbox:${bb.join(',')}];${detail}`)
                 .then(data => {
                     data.json().then(d => {
                         if (d.elements.length == 0) that.hash2idarr[hash] = []
@@ -900,7 +934,11 @@ class OsmCanvas extends BaseCanvas {
                             const id = elm.id
                             //if (that.hash2idarr[hash] === undefined) that.hash2idarr[hash] = []
                             that.hash2idarr[hash].push(id)
-                            that.id2obj[id] = elm
+                            if (elm.type == 'way')
+                                that.id2obj[id] = elm
+                            else if (feature == 'reitti' && elm.type == 'relation') {
+                                for (const m of elm.members) that.id2mark[m.ref] = true
+                            }
                         }
                         //console.log('done', hash, `${endpoint}?data=[out:json][bbox:${bb.join(',')}];way[highway];out geom;`)
                         this.map.rerender()
@@ -915,13 +953,14 @@ class OsmCanvas extends BaseCanvas {
     * render(ctx, bbox, wh, feature, hashlen, extra) {
         const hashes = bboxes(bbox[0], bbox[1], bbox[2], bbox[3], hashlen)
         this.load(hashes, feature)
-
+        if (feature == 'reitti') return
         const dx = bbox[3] - bbox[1]
         const dy = bbox[2] - bbox[0]
         const drawn = {}
 
 
-        for (const hash of hashes) {
+        for (const hash_ of hashes) {
+            const hash = hash_ + feature
 
             for (const id of this.hash2idarr[hash] || []) {
                 const e = this.id2obj[id]
@@ -939,13 +978,33 @@ class OsmCanvas extends BaseCanvas {
     renderOne(ctx, bbox, wh, feature, extra, dx, dy, e){
         //console.log('omsone',e)
         ctx.beginPath()
+        /*
+        if (this.id2mark[e.id]) {
+            ctx.fillStyle = 'rgb(218,112,214,0.8)'
+            for (let i=0; i<e.geometry.length; i+=3) {
+                ctx.beginPath()
+                const pt = e.geometry[i]
+                const x = (pt.lon-bbox[1])/dx * wh[0]
+                const y = wh[1] - (pt.lat-bbox[0])/dy * wh[1]
+                ctx.arc(x,y, 7, 0, 2*Math.PI)
+                ctx.fill()
+            }
+        }*/
+        ctx.beginPath()
         for (let i=0; i<e.geometry.length; i++) {
             const pt = e.geometry[i]
             const x = (pt.lon-bbox[1])/dx * wh[0]
             const y = wh[1] - (pt.lat-bbox[0])/dy * wh[1]
             i==0 ? ctx.moveTo(x, y): ctx.lineTo(x, y)
         }
+        if (this.id2mark[e.id]) {
+            ctx.setLineDash([])
+            ctx.lineWidth = 9;
+            ctx.strokeStyle = 'rgb(218,112,214,0.8)'
+            ctx.stroke()
+        }
         if (e.tags.highway == 'path') {
+            //console.log(e)
             if (e.tags['mtb:scale']) {
                 let color = null
                 switch(parseInt(e.tags['mtb:scale'])) {
@@ -955,9 +1014,10 @@ class OsmCanvas extends BaseCanvas {
                 case 4: color = 'red'; break;
                 case 5: color = 'purple'; break;
                 case 6: color = 'purple'; break;
+                default: color = 'lime'
                 }
                 ctx.setLineDash([])
-                ctx.lineWidth = 6;
+                ctx.lineWidth = 4;
                 ctx.strokeStyle = color
                 ctx.stroke()
             }
@@ -967,9 +1027,30 @@ class OsmCanvas extends BaseCanvas {
             ctx.stroke()
         } else {
             ctx.setLineDash([])
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = 'black';
-            ctx.stroke()
+            if (e.tags.highway == 'cycleway' || e.tags.highway == 'footway') {
+                ctx.lineWidth = 4;
+                ctx.strokeStyle = '#bfc1c2';
+                ctx.stroke()
+            }
+            else if (e.tags.surface == 'asphalt' 
+                || e.tags.highway == 'motorway'
+                || e.tags.highway == 'motorway_link'
+                || e.tags.highway == 'trunk'
+                || e.tags.highway == 'trunk_link'
+                ) {
+                ctx.lineWidth = 12;
+                ctx.strokeStyle = '#bfc1c2';
+                ctx.stroke()
+                ctx.setLineDash([6, 18])
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = 'white';
+                ctx.stroke()
+            }
+            else {
+                ctx.lineWidth = 8;
+                ctx.strokeStyle = '#a0522d'
+                ctx.stroke()
+            }
         }
         ctx.setLineDash([])
     }
@@ -988,7 +1069,12 @@ class MyMap {
 
         const view = {
             // lat, lon
-            pos: [62.211451, 25.691848],
+            //pos: [62.211451, 25.691848],
+            //pos: [62.21292702682467, 25.739142460974207],
+            //pos: [62.30373450262648, 25.75175004608285],
+            pos: [62.252579460535756, 25.80582969019064],
+            pos: [62.212492630467814, 25.6282595440125],
+            pos: [62.207982056800816, 25.712969957941112],
             zoom: 1/5000.0,
             rot: 0,
         }
@@ -1000,10 +1086,13 @@ class MyMap {
 
         this.bindEvents(canvas)
 
-        this.rStarted = false
-        this.rEnded = false
+        this.rOngoing = false
         this.cleanRenderNeeded = true // if movement while render on place?
         this.rLayoutIdx = -1
+        this.tasks = []
+    }
+    addTask(task) {
+        this.tasks.push(task)
     }
     setLayout(layouts) {
         this.layouts = layouts
@@ -1013,17 +1102,24 @@ class MyMap {
     }
 
     render() {
+        const t = window.performance.now()
+        while (this.tasks.length) {
+            const task = this.tasks.shift()
+            task()
+            if ((window.performance.now() - t) > 0.5) break
+        }
+
+
         //console.log('render', this.cleanRenderNeeded, this.rLayoutIdx, this.rgen)
         const T0 = window.performance.now()
         for (const c of this.canvases) c.preRender()
 
-        if (this.cleanRenderNeeded) {
+        if (!this.rOngoing && this.cleanRenderNeeded) {
             this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
             this.cleanRenderNeeded = false
             this.rLayoutIdx = -1
-            this.rStarted = true
-            this.rEnded = false
-            this.rgen = undefined
+            this.rOngoing = true
+            console.log('clean')
         } else {
             //console.log('continue render', this.rLayoutIdx)
         }
@@ -1037,7 +1133,6 @@ class MyMap {
         const dx = bbox[3] - bbox[1]
         const dy = bbox[2] - bbox[0]
 
-
         if (this.rLayoutIdx < 0) this.rLayoutIdx = this.layouts.length - 1
         while (this.rLayoutIdx >= 0) {
             const layout = this.layouts[this.rLayoutIdx]
@@ -1046,14 +1141,15 @@ class MyMap {
                 this.ctx.save()
                 this.ctx.beginPath()
                 //let fidx = layout.obj.renerArray()
-                if (this.rgen == undefined)
-                    this.rgen = layout.obj.render(
+                if (layout.rgen == undefined)
+                    layout.rgen = layout.obj.render(
                         this.ctx, bbox, 
                         wh, 
                         layout.feature, 
-                        layout.hashlen || 6, layout.extra)
+                        layout.hashlen || 6,
+                        layout.extra)
                 let next;
-                while (!(next = this.rgen.next()).done) {
+                while (!(next = layout.rgen.next()).done) {
                     const f = next.value;
                     layout.obj.renderOne(this.ctx, bbox, wh, layout.feature, layout.extra, dx, dy, f)
 
@@ -1065,7 +1161,7 @@ class MyMap {
                 }
                 this.ctx.restore()
                 if (next.done) {
-                    this.rgen = undefined
+                    layout.rgen = undefined
                     this.rLayoutIdx--
                 } 
                 else {
@@ -1077,10 +1173,10 @@ class MyMap {
 
                 // cut of any layer which do not perform!
                 //if (t1-T0 > 5) this.rLayoutIdx = 0
-            }
+            } else (this.rLayoutIdx--)
         }
         if (this.rLayoutIdx == -1) {
-            this.rEnded = true
+            this.rOngoing = false
         }
         //for (const c of this.canvases) {
         //    console.log(c.name, 'clashes', c.clashes, 'elemts', c.elements)
@@ -1088,6 +1184,7 @@ class MyMap {
         //for (const l of this.layouts) console.log(l.name, l.perfRender +'uS')
 
         //console.log('render', this.view.zoom, window.performance.now() - T0)
+        //console.log(bbox.join(','))
     }
     rerender() {
         this.cleanRenderNeeded = true
@@ -1125,6 +1222,7 @@ class MyMap {
 
         canvas.addEventListener('mouseup', ev => {
             this.startEvent = undefined
+            console.log(this.view.pos)
         })
 
         canvas.addEventListener("touchstart", ev => {
@@ -1174,15 +1272,18 @@ onMount(async () => {
 
     map.setLayout([
         //{ name: 'dbg',         hashlen: 4, max: 0, min: 1, obj: dbg},
-        { name: 'puut',     max: 1/100000., min: 1, obj: smk, feature: 'trees'},
-        { name: 'polut',          max: 1/60000., min: 1, obj: osm, },
+        { name: 'polut',          max: 1/60000., min: 1, obj: osm, feature: 'polut', hashlen: 6 },
+        { name: 'puut',           max: 1/9000., min: 1, obj: smk, feature: 'trees'},
+        { name: 'reitit',         max: 1/60000., min: 1, obj: osm, feature: 'reitti', hashlen: 6 },
         { name: 'jyrkänteet',     max: 1/25000., min: 1, obj: mml, feature: 'jyrkanne' },
-        { name: 'korkeuskäyrät',  max: 1/4000., min: 1, obj: mml, feature: 'korkeuskayra' },
-        { name: 'korkeuskäyrät20',max: 1/10000., min: 1, obj: mml, feature: 'korkeuskayra', extra: 20 },
+        { name: 'korkeuskäyrät',  max: 1/10000., min: 1, obj: mml, feature: 'korkeuskayra' },
+        { name: 'korkeuskäyrät20',max: 1/30000., min: 1, obj: mml, feature: 'korkeuskayra', extra: 20 },
         { name: 'nimet',          hashlen: 4, max: 0,         min: 1, obj: mml, feature: 'paikannimi'},
-        { name: 'metsäpohja',     hashlen: 6, max: 1/50000., min: 1, obj: smk, feature: 'ground'},
+        { name: 'ojat',           max: 1/10000., min: 1, obj: mml, feature: 'virtavesikapea' },
+        { name: 'suot',           hashlen: 6, max: 1/50000.,  min: 1, obj: mml, feature: 'suo'},
+        { name: 'metsäpohja',     hashlen: 6, max: 1/50000.,  min: 1, obj: smk, feature: 'ground'},
         { name: 'järvet',         hashlen: 6, max: 1/500000., min: 1, obj: mml, feature: 'jarvi'},
-        //{ name: 'isot tiet',      hashlen: 4, max: 0,         min: 1, obj: osm, feature: 'motorway'},
+        { name: 'isot tiet',      hashlen: 4, max: 0,         min: 1, obj: osm, feature: 'motorway'},
         //{ name: 'vesistö', max: 1/5000., min: 1, obj: MmlCanvas },
     ])
     map.render()
